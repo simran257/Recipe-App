@@ -1,23 +1,47 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Recipe Sharing</title>
-    <link rel="stylesheet" href="style.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Recipe Sharing Platform</title>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-
-<h1>Recipe Sharing Platform</h1>
-
+<header>
+<h1>🍴 Recipe Sharing Platform</h1>
+<p>Discover, add and manage your favorite recipes</p>
+</header>
+<main>
+<!-- Add Recipe Form -->
+<section class="form-section">
+<h2 id="formHeading">Add New Recipe</h2>
 <form id="recipeForm">
-    <input type="text" id="title" placeholder="Recipe Title" required>
-    <textarea id="ingredients" placeholder="Ingredients"></textarea>
-    <textarea id="instructions" placeholder="Instructions"></textarea>
-    <button type="submit">Add Recipe</button>
+<input type="text"id="title"placeholder="Recipe Title"required><textarea id="ingredients placeholder="Enter ingredients..."required></textarea>
+<textarea id="instructions"placeholder="Enter cooking instructions..."required></textarea>
+<div class="form-buttons"><button type="submit" id="submitBtn">Add Recipe</button>
+<button type="button"id="cancelBtn"class="cancel-btn"style="display: none;">Cancel</button>
+</div>
 </form>
-
+<p id="message"></p>
+</section>
+<!-- Recipes Section -->
+<section class="recipes-section">
+<div class="recipes-header">
+<div>
+<h2>🍲 All Recipes</h2>
+<p id="recipeCount">Loading recipes...</p>
+</div>
+<input type="text"id="searchInput"placeholder="🔍 Search recipes...">
+</div>
+<div id="loading">
+Loading recipes...
+</div>
 <div id="recipes"></div>
-
+</section>
+</main>
+<footer>
+<p>© 2026 Recipe Sharing Platform</p>
+</footer>
 <script src="script.js"></script>
-
 </body>
 </html>
