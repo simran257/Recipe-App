@@ -1,67 +1,251 @@
-const express = require("express");
-const { MongoClient, ObjectId } = require("mongodb");
-const cors = require("cors");
+const API_URL = "http://localhost:3000/recipes";
+const recipeForm = document.getElementById("recipeForm");
+const titleInput = document.getElementById("title");
+const ingredientsInput = document.getElementById("ingredients");
+const instructionsInput = document.getElementById("instructions");
+const recipesContainer = document.getElementById("recipes");
+const submitBtn = document.getElementById("submitBtn");
+const cancelBtn = document.getElementById("cancelBtn");
+const formHeading = document.getElementById("formHeading");
+const message = document.getElementById("message");
+const searchInput = document.getElementById("searchInput");
+const loading = document.getElementById("loading");
+const recipeCount = document.getElementById("recipeCount");
 
-const app = express();
+let recipes = [];
+let editingId = null;
 
-app.use(cors());
-app.use(express.json());
+/* =========================
+   GET ALL RECIPES
+========================= */
 
-const client = new MongoClient("mongodb://127.0.0.1:27017");
-
-let db;
-
-async function startServer() {
-  try {
-    await client.connect();
-    db = client.db("recipeDB");
-
-    console.log("MongoDB Connected ✔");
-
-    app.get("/recipes", async (req, res) => {
-      const data = await db.collection("recipes").find().toArray();
-      res.json(data);
-    });
-
-    app.post("/recipes", async (req, res) => {
-      try {
-        const { title, ingredients, instructions } = req.body;
-
-        console.log("BODY RECEIVED:", req.body);
-
-        if (!title || !ingredients || !instructions) {
-          return res.status(400).json({ error: "All fields required" });
-        }
-
-        const result = await db.collection("recipes").insertOne({
-          title,
-          ingredients,
-          instructions
-        });
-
-        res.status(201).json({ message: "Recipe added", result });
-
-      } catch (err) {
-        console.log("POST ERROR:", err);
-        res.status(500).json({ error: err.message });
-      }
-    });
-
-    app.delete("/recipes/:id", async (req, res) => {
-      await db.collection("recipes").deleteOne({
-        _id: new ObjectId(req.params.id)
-      });
-
-      res.json({ message: "Deleted" });
-    });
-
-    app.listen(3000, () => {
-      console.log("Server running on port 3000");
-    });
-
-  } catch (err) {
-    console.log("DB ERROR:", err);
-  }
+async function getRecipes() {
+try {
+loading.style.display = "block";
+const response = await fetch(API_URL);
+if (!response.ok) {
+throw new Error("Failed to fetch recipes");
+}
+recipes = await response.json();
+displayRecipes(recipes);
+} catch (error) {
+console.error(error);
+recipesContainer.innerHTML ="<p>Unable to load recipes. Please check the server.</p>";
+} finally {
+loading.style.display = "none";
+}
 }
 
-startServer();
+/* =========================
+   DISPLAY RECIPES
+========================= */
+
+function displayRecipes(data) {
+recipesContainer.innerHTML = "";
+recipeCount.textContent =`${data.length} recipe${data.length !== 1 ? "s" : ""} found`;
+if (data.length === 0) {
+recipesContainer.innerHTML = `<p style="text-align:center;">No recipes found.</p>`;
+return;
+}
+data.forEach(recipe => {
+const recipeDiv = document.createElement("div");
+recipeDiv.className = "recipe";
+recipeDiv.innerHTML = `
+<h3>🍽️ ${escapeHTML(recipe.title)}</h3>
+<h4>Ingredients</h4>
+<p>${escapeHTML(recipe.ingredients)}</p>
+<h4>Instructions</h4>
+<p>${escapeHTML(recipe.instructions)}</p>
+<div class="recipe-buttons">
+<button class="edit-btn" onclick="editRecipe('${recipe._id}')">✏️ Edit </button>
+<button class="delete-btn" onclick="deleteRecipe('${recipe._id}')">🗑️ Delete </button>
+</div>`;
+recipesContainer.appendChild(recipeDiv);
+});
+}
+
+/* =========================
+   ADD / UPDATE RECIPE
+========================= */
+
+recipeForm.addEventListener("submit", async function (event) {
+event.preventDefault();
+const title = titleInput.value.trim();
+const ingredients = ingredientsInput.value.trim();
+const instructions = instructionsInput.value.trim();
+if (!title || !ingredients || !instructions) {
+showMessage("Please fill all fields.","red");
+return;
+}
+const recipeData = {
+title,
+ingredients,
+instructions
+};
+try {
+let response;
+
+/* UPDATE */
+if (editingId) {
+response = await fetch(`${API_URL}/${editingId}`,{
+method: "PUT"
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify(recipeData)
+}
+);
+}
+
+/* ADD */
+else {
+response = await fetch(
+API_URL,
+{
+method: "POST",
+headers: {
+"Content-Type": "application/json"
+},
+body: JSON.stringify(recipeData)
+}
+);
+}
+const result = await response.json();
+if (!response.ok) {
+throw new Error(
+result.error || "Something went wrong"
+);
+}
+if (editingId) {
+showMessage("Recipe updated successfully! ✔","green");
+} else {
+showMessage("Recipe added successfully! ✔","green");
+}
+resetForm();
+getRecipes();
+} catch (error) {
+console.error(error);
+showMessage(error.message,"red");
+}
+});
+
+/* =========================
+   EDIT RECIPE
+========================= */
+
+function editRecipe(id) {
+const recipe = recipes.find(item => item._id === id);
+if (!recipe) {
+return;
+}
+titleInput.value = recipe.title;
+ingredientsInput.value = recipe.ingredients;
+instructionsInput.value = recipe.instructions;
+editingId = id;
+formHeading.textContent = "Edit Recipe";
+submitBtn.textContent = "Update Recipe";
+cancelBtn.style.display = "inline-block";
+window.scrollTo({
+top: 0,
+behavior: "smooth"
+});
+}
+
+/* =========================
+   DELETE RECIPE
+========================= */
+
+async function deleteRecipe(id) {
+const confirmDelete =
+confirm("Are you sure you want to delete this recipe?");
+if (!confirmDelete) {
+return;
+}
+try {
+const response = await fetch(`${API_URL}/${id}`,
+{
+method: "DELETE"
+}
+);
+const result = await response.json();
+if (!response.ok) {
+throw new Error(result.error || "Delete failed");
+}
+showMessage("Recipe deleted successfully! ✔","green");
+getRecipes();
+} catch (error) {
+console.error(error);
+showMessage(
+error.message,"red");
+}
+}
+
+/* =========================
+   CANCEL EDIT
+========================= */
+
+cancelBtn.addEventListener(
+"click",
+function () {
+resetForm();
+}
+);
+
+/* =========================
+   RESET FORM
+========================= */
+
+function resetForm() {
+recipeForm.reset();
+editingId = null;
+formHeading.textContent =
+"Add New Recipe";
+submitBtn.textContent = "Add Recipe";
+cancelBtn.style.display =
+"none";
+}
+
+/* =========================
+   SEARCH RECIPES
+========================= */
+
+searchInput.addEventListener(
+"input",
+function () {
+const searchText = searchInput.value.toLowerCase().trim();
+const filteredRecipes = recipes.filter(recipe =>
+recipe.title.toLowerCase().includes(searchText)||
+recipe.ingredients.toLowerCase().includes(searchText)||
+recipe.instructions.toLowerCase().includes(searchText)
+);
+displayRecipes(filteredRecipes);
+}
+);
+
+/* =========================
+   MESSAGE
+========================= */
+
+function showMessage(text, color) {
+message.textContent = text;
+message.style.color = color;
+setTimeout(() => {
+message.textContent = "";
+}, 3000);
+}
+
+/* =========================
+   SECURITY HELPER
+========================= */
+
+function escapeHTML(text) {
+const div = document.createElement("div");
+div.textContent = text;
+return div.innerHTML;
+}
+
+/* =========================
+   INITIAL LOAD
+========================= */
+
+getRecipes();
